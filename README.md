@@ -89,8 +89,8 @@ Edit your workspace-specific `.tfvars` file. **Note:** The `applicationname` var
 # Example for workspace 'myapp-dev'
 applicationname                       = "myapp"    # Must match workspace prefix
 location                              = "East US"
-costmanagement                        = "your-cost-center"
-owner                                 = "your-team"
+costmanagement                        = "your-cost-management-tag in this sample format 'CostCenter:US31013520+MRU:+LocationCode:+ExpirationDate:'"
+owner                                 = "in this sample format 'EPRID:- No EPRID -+Name:+Contact:orlando.gutierrez1@hp.com'"
 db_admin_password                     = "YourSecurePassword123!"
 user_assigned_identity_name           = "your-managed-identity"
 user_assigned_identity_resource_group = "your-identity-rg"
