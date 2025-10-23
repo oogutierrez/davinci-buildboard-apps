@@ -46,26 +46,26 @@ This deployment creates:
 > **Important:** This configuration requires a **named workspace** following the pattern: `{applicationname}-{environment}`
 > 
 > - **applicationname**: Your application identifier (e.g., `myapp`, `portal`, `api`)
-> - **environment**: 3-character environment code (e.g., `DEV`, `PRO`, `QA`, `STG`)
+> - **environment**: 3-character environment code (e.g., `dev`, `pro`, `qa`, `stg`)
 
 **Examples of valid workspace names:**
 ```bash
 # Development environment
-terraform workspace new myapp-DEV
+terraform workspace new myapp-dev
 
 # Production environment  
-terraform workspace new myapp-PRO
+terraform workspace new myapp-pro
 
 # QA environment
-terraform workspace new portal-QA
+terraform workspace new portal-qa
 
 # Staging environment
-terraform workspace new api-STG
+terraform workspace new api-stg
 ```
 
 **Select an existing workspace:**
 ```bash
-terraform workspace select myapp-DEV
+terraform workspace select myapp-dev
 ```
 
 ### 2. Create a Workspace-Specific Variables File
@@ -73,20 +73,20 @@ terraform workspace select myapp-DEV
 Create a variables file named after your **full workspace name** (including environment):
 
 ```bash
-# For workspace 'myapp-DEV'
-touch myapp-DEV.tfvars
+# For workspace 'myapp-dev'
+touch myapp-dev.tfvars
 
-# For workspace 'portal-PRO'
-touch portal-PRO.tfvars
+# For workspace 'portal-pro'
+touch portal-pro.tfvars
 
-# For workspace 'api-QA'
-touch api-QA.tfvars
+# For workspace 'api-qa'
+touch api-qa.tfvars
 ```
 
 Edit your workspace-specific `.tfvars` file. **Note:** The `applicationname` variable should match the application part of your workspace name:
 
 ```hcl
-# Example for workspace 'myapp-DEV'
+# Example for workspace 'myapp-dev'
 applicationname                       = "myapp"    # Must match workspace prefix
 location                              = "East US"
 costmanagement                        = "your-cost-center"
@@ -113,9 +113,9 @@ terraform apply -var-file="$(terraform workspace show).tfvars"
 ```
 
 > **Best Practice:** This pattern automatically uses the correct variables file for your current workspace:
-> - `myapp-DEV` workspace → `myapp-DEV.tfvars`
-> - `myapp-PRO` workspace → `myapp-PRO.tfvars`
-> - `portal-QA` workspace → `portal-QA.tfvars`
+> - `myapp-dev` workspace → `myapp-dev.tfvars`
+> - `myapp-pro` workspace → `myapp-pro.tfvars`
+> - `portal-qa` workspace → `portal-qa.tfvars`
 
 ### 4. Access n8n
 
@@ -249,16 +249,16 @@ If you see `ERROR: You must use a named workspace` or workspace format errors:
 terraform workspace show
 
 # Create properly formatted workspace
-terraform workspace new myapp-DEV
+terraform workspace new myapp-dev
 
 # Switch to existing workspace
-terraform workspace select myapp-DEV
+terraform workspace select myapp-dev
 ```
 
 **Common workspace naming issues:**
 - Using `default` workspace (not allowed)
 - Environment code longer than 3 characters
-- Environment code not in uppercase
+- Environment code not in lowercase
 - Missing hyphen separator
 - Missing environment part
 
@@ -277,17 +277,17 @@ ls -la $(terraform workspace show).tfvars
 touch $(terraform workspace show).tfvars
 ```
 
-**Example for workspace `myapp-DEV`:**
+**Example for workspace `myapp-dev`:**
 ```bash
 # Current workspace
 terraform workspace show
-# Output: myapp-DEV
+# Output: myapp-dev
 
 # Required file name
-ls -la myapp-DEV.tfvars
+ls -la myapp-dev.tfvars
 
 # If missing
-touch myapp-DEV.tfvars
+touch myapp-dev.tfvars
 ```
 
 ---
@@ -307,8 +307,8 @@ terraform destroy -var-file="$(terraform workspace show).tfvars"
 ## Important Notes
 
 - **Always use workspace-specific variable files** with the pattern `-var-file="$(terraform workspace show).tfvars"`
-- **Workspace names must follow format:** `{applicationname}-{environment}` (e.g., `myapp-DEV`)
-- **Environment codes must be exactly 3 uppercase characters** (e.g., `DEV`, `PRO`, `QA`)
+- **Workspace names must follow format:** `{applicationname}-{environment}` (e.g., `myapp-dev`)
+- **Environment codes must be exactly 3 lowercase characters** (e.g., `dev`, `pro`, `qa`)
 - **Application name in variables file must match workspace prefix**
 - The `N8N_ENCRYPTION_KEY` is hardcoded in this example. For production, use **Azure Key Vault**.  
 - Database password should be stored securely (Key Vault, environment variables).  
