@@ -198,7 +198,7 @@ Configured for n8n:
 ```env
 DB_TYPE=postgresdb
 N8N_PROTOCOL=https
-NODE_ENV=production
+NODE_ENV=production #Set to correct environment
 N8N_ENCRYPTION_KEY=(auto-generated)
 DB_POSTGRESDB_SSL_REJECT_UNAUTHORIZED=false
 ```
