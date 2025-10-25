@@ -21,7 +21,7 @@ resource "terraform_data" "workspace_validation" {
       error_message = "ERROR: You must use a named workspace. Current workspace: ${terraform.workspace}. Use 'terraform workspace new <name>' to create one."
     }
   }
-  
+
   input = terraform.workspace
 }
 
@@ -43,7 +43,7 @@ variable "environment" {
   default     = ""
 
   validation {
-    condition     = contains(["development","production","staging","qa"], lower(var.environment))
+    condition     = contains(["development", "production", "staging", "qa"], lower(var.environment))
     error_message = "Invalid environment: ${var.environment}. Allowed values are development, production, staging, qa."
   }
 }
@@ -70,6 +70,14 @@ variable "owner" {
   default     = ""
 }
 
+locals {
+  required_tags = {
+    CostManagement = var.costmanagement
+    Owner          = var.owner
+    Environment    = var.environment
+  }
+}
+
 variable "acr_name" {
   description = "Azure Container Registry name"
   type        = string
@@ -86,6 +94,17 @@ variable "n8n_image_tag" {
   description = "n8n image tag"
   type        = string
   default     = "latest"
+}
+
+variable "n8n_encryption_key" {
+  description = "n8n encryption key"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = length(var.n8n_encryption_key) >= 32
+    error_message = "n8n_encryption_key must be at least 32 characters long."
+  }
 }
 
 variable "db_admin_username" {
@@ -129,11 +148,7 @@ data "azurerm_user_assigned_identity" "app_identity" {
 resource "azurerm_resource_group" "rg" {
   name     = "rg-${var.applicationname}-n8n-${local.env_suffix[local.env_key]}"
   location = var.location
-  tags = {
-    CostManagement = var.costmanagement
-    Owner          = var.owner
-    Environment    = var.environment
-  }
+  tags     = local.required_tags
 }
 
 # Virtual Network
@@ -142,6 +157,7 @@ resource "azurerm_virtual_network" "vnet" {
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
   address_space       = ["10.0.0.0/16"]
+  tags                = merge(local.required_tags, { Description = "Internal and private virtual network. You may add private endpoints in the subnet-pe-* in this vnet. Do not peer to other vnet." })
 }
 
 # Subnet for App Service Integration
@@ -190,6 +206,7 @@ resource "azurerm_subnet" "postgres_subnet" {
 resource "azurerm_private_dns_zone" "postgres_dns" {
   name                = "privatelink.postgres.database.azure.com"
   resource_group_name = azurerm_resource_group.rg.name
+  tags                = merge(local.required_tags, { Description = "For resolution of the internal PostgreSQL server." })
 }
 
 # Link Private DNS Zone for PostgreSQL to VNet
@@ -223,6 +240,8 @@ resource "azurerm_postgresql_flexible_server" "postgres" {
 
   zone = "1"
 
+  tags                = merge(local.required_tags, { Description = "Internal and private PostgreSQL server to persist settings and workflow data." })
+
   depends_on = [
     azurerm_private_dns_zone_virtual_network_link.postgres_dns_link
   ]
@@ -243,6 +262,7 @@ resource "azurerm_service_plan" "plan" {
   location            = azurerm_resource_group.rg.location
   os_type             = "Linux"
   sku_name            = "B1" # Basic tier - cheapest for containers
+  tags                = merge(local.required_tags, { Description = "Adjustable service plan for n8n application." })
 }
 
 # App Service (Web App)
@@ -252,19 +272,21 @@ resource "azurerm_linux_web_app" "webapp" {
   location            = azurerm_resource_group.rg.location
   service_plan_id     = azurerm_service_plan.plan.id
 
+  virtual_network_subnet_id = azurerm_subnet.app_subnet.id
+
   site_config {
     always_on = false
 
     application_stack {
-      docker_image_name        = "n8n:${var.n8n_image_tag}"
+      docker_image_name        = "n8n:latest"
       docker_registry_url      = var.acr_name != "" ? "https://${data.azurerm_container_registry.acr[0].login_server}" : null
       docker_registry_username = null
       docker_registry_password = null
     }
-    container_registry_use_managed_identity = var.acr_name != "" ? true : false
+    container_registry_use_managed_identity       = var.acr_name != "" ? true : false
     container_registry_managed_identity_client_id = var.acr_name != "" ? data.azurerm_user_assigned_identity.app_identity.client_id : null
   }
-  
+
   app_settings = {
     "WEBSITES_ENABLE_APP_SERVICE_STORAGE"   = "false"
     "DOCKER_ENABLE_CI"                      = "true"
@@ -277,7 +299,7 @@ resource "azurerm_linux_web_app" "webapp" {
     "N8N_HOST"                              = "${var.applicationname}-n8n.azurewebsites.net"
     "N8N_PROTOCOL"                          = "https"
     "NODE_ENV"                              = var.environment != "" ? var.environment : ""
-    "N8N_ENCRYPTION_KEY"                    = "k9mP2vL8nQ4wX7jR5tY3bN6hF1dG8sA9cE2zM5xK7pW4qV6uT3yH9rJ2nL5mB8fD"
+    "N8N_ENCRYPTION_KEY"                    = var.n8n_encryption_key
     "N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS" = "true"
     "DB_POSTGRESDB_SSL_REJECT_UNAUTHORIZED" = "false"
   }
@@ -288,6 +310,10 @@ resource "azurerm_linux_web_app" "webapp" {
   }
 
   https_only = true
+
+  public_network_access_enabled = false
+
+  tags                = merge(local.required_tags, { Description = "The n8n web application." })
 }
 
 # VNet Integration for Web App
@@ -300,6 +326,7 @@ resource "azurerm_app_service_virtual_network_swift_connection" "vnet_integratio
 resource "azurerm_private_dns_zone" "webapp_dns" {
   name                = "privatelink.azurewebsites.net"
   resource_group_name = azurerm_resource_group.rg.name
+  tags                = merge(local.required_tags, { Description = "For internal resolution of the n8n web application." })
 }
 
 # Link Private DNS Zone to VNet
@@ -329,6 +356,7 @@ resource "azurerm_private_endpoint" "webapp_pe" {
     name                 = "webapp-dns-zone-group"
     private_dns_zone_ids = [azurerm_private_dns_zone.webapp_dns.id]
   }
+  tags                = merge(local.required_tags, { Description = "Internal private endpoint only for the n8n web app. Do not use this endpoint to connect to it. Create another one for external access." })
 }
 
 # Outputs
