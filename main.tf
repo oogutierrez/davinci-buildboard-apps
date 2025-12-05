@@ -9,7 +9,13 @@ terraform {
 
 provider "azurerm" {
   features {}
-  subscription_id = "13d52521-10b9-4b99-91b7-a244d1a5a16b"
+  subscription_id = "13d52521-10b9-4b99-91b7-a244d1a5a16b" #DAVINCI-DEV
+}
+
+provider "azurerm" {
+  alias           = "subscription_davincipro"
+  features {}
+  subscription_id = "31be81f5-fcff-4ec4-b88e-de233997e15e" #DAVINCI-PRO
 }
 
 
@@ -78,18 +84,6 @@ locals {
   }
 }
 
-variable "acr_name" {
-  description = "Azure Container Registry name"
-  type        = string
-  default     = ""
-}
-
-variable "acr_resource_group" {
-  description = "Resource group of the Azure Container Registry"
-  type        = string
-  default     = ""
-}
-
 variable "n8n_image_tag" {
   description = "n8n image tag"
   type        = string
@@ -120,28 +114,47 @@ variable "db_admin_password" {
   default     = "TempPassword123!" # Will be used only during destroy
 }
 
-variable "user_assigned_identity_name" {
-  description = "Name of the user-assigned managed identity"
+variable "webapp_pe_subnet_name" {
+  description = "Name of the existing subnet for webapp private endpoint"
   type        = string
-  default     = "cpat-assistant-mi"
+  default     = "PRIVATE_SUBNET_01"
 }
 
-variable "user_assigned_identity_resource_group" {
-  description = "Resource group of the user-assigned managed identity"
+variable "webapp_pe_subnet_vnet_name" {
+  description = "Name of the VNet containing the webapp PE subnet"
   type        = string
-  default     = "oog-test-rg"
+  default     = "davincidev-coreservices-vnet"
+}
+
+variable "webapp_pe_subnet_resource_group" {
+  description = "Resource group of the VNet containing the webapp PE subnet"
+  type        = string
+  default     = "davincidev-coreservices-rg"
+}
+
+variable "webapp_private_dns_zone_name" {
+  description = "Name of the existing private DNS zone for webapp"
+  type        = string
+  default     = "privatelink.azurewebsites.net"
+}
+
+variable "webapp_private_dns_zone_resource_group" {
+  description = "Resource group of the existing private DNS zone for webapp"
+  type        = string
+  default     = "dvpro-private-dns-zones-rg"
 }
 
 # Data sources
-data "azurerm_container_registry" "acr" {
-  count               = var.acr_name != "" ? 1 : 0
-  name                = var.acr_name
-  resource_group_name = var.acr_resource_group
+data "azurerm_subnet" "webapp_pe_subnet" {
+  name                 = var.webapp_pe_subnet_name
+  virtual_network_name = var.webapp_pe_subnet_vnet_name
+  resource_group_name  = var.webapp_pe_subnet_resource_group
 }
 
-data "azurerm_user_assigned_identity" "app_identity" {
-  name                = var.user_assigned_identity_name
-  resource_group_name = var.user_assigned_identity_resource_group
+data "azurerm_private_dns_zone" "webapp_dns" {
+  provider            = azurerm.subscription_davincipro
+  name                = var.webapp_private_dns_zone_name
+  resource_group_name = var.webapp_private_dns_zone_resource_group
 }
 
 # Resource Group
@@ -149,6 +162,89 @@ resource "azurerm_resource_group" "rg" {
   name     = "rg-${var.applicationname}-n8n-${local.env_suffix[local.env_key]}"
   location = var.location
   tags     = local.required_tags
+}
+
+# User-Assigned Managed Identity
+resource "azurerm_user_assigned_identity" "app_identity" {
+  name                = "mi-${var.applicationname}-n8n-${local.env_suffix[local.env_key]}"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  tags                = merge(local.required_tags, { Description = "Managed identity for n8n application to access ACR and PostgreSQL." })
+}
+
+# Azure Container Registry
+resource "azurerm_container_registry" "acr" {
+  name                = "acr${var.applicationname}n8n${local.env_suffix[local.env_key]}"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  sku                 = "Premium"
+  admin_enabled       = false
+
+  public_network_access_enabled = false
+
+  tags = merge(local.required_tags, { Description = "Container registry for n8n application images." })
+}
+
+# Private DNS Zone for ACR
+resource "azurerm_private_dns_zone" "acr_dns" {
+  name                = "privatelink.azurecr.io"
+  resource_group_name = azurerm_resource_group.rg.name
+  tags                = merge(local.required_tags, { Description = "For internal resolution of the container registry." })
+}
+
+# Link Private DNS Zone for ACR to VNet
+resource "azurerm_private_dns_zone_virtual_network_link" "acr_dns_link" {
+  name                  = "acr-dns-link"
+  resource_group_name   = azurerm_resource_group.rg.name
+  private_dns_zone_name = azurerm_private_dns_zone.acr_dns.name
+  virtual_network_id    = azurerm_virtual_network.vnet.id
+  registration_enabled  = false
+}
+
+# Private Endpoint for ACR
+resource "azurerm_private_endpoint" "acr_pe" {
+  name                = "pe-${var.applicationname}-acr"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  subnet_id           = azurerm_subnet.pe_subnet.id
+
+  private_service_connection {
+    name                           = "psc-${var.applicationname}-acr"
+    private_connection_resource_id = azurerm_container_registry.acr.id
+    is_manual_connection           = false
+    subresource_names              = ["registry"]
+  }
+
+  private_dns_zone_group {
+    name                 = "acr-dns-zone-group"
+    private_dns_zone_ids = [azurerm_private_dns_zone.acr_dns.id]
+  }
+
+  tags = merge(local.required_tags, { Description = "Internal private endpoint for container registry access." })
+}
+
+# Role Assignment: Allow managed identity to pull from ACR
+resource "azurerm_role_assignment" "acr_pull" {
+  scope                = azurerm_container_registry.acr.id
+  role_definition_name = "AcrPull"
+  principal_id         = azurerm_user_assigned_identity.app_identity.principal_id
+}
+
+# Import n8n image to ACR using null_resource
+resource "null_resource" "import_n8n_image" {
+  triggers = {
+    acr_id     = azurerm_container_registry.acr.id
+    image_tag  = var.n8n_image_tag
+  }
+
+  provisioner "local-exec" {
+    command = "az acr import --name ${azurerm_container_registry.acr.name} --source docker.io/n8nio/n8n:${var.n8n_image_tag} --image n8n:${var.n8n_image_tag} --resource-group ${azurerm_resource_group.rg.name}"
+  }
+
+  depends_on = [
+    azurerm_container_registry.acr,
+    azurerm_private_endpoint.acr_pe
+  ]
 }
 
 # Virtual Network
@@ -176,7 +272,7 @@ resource "azurerm_subnet" "app_subnet" {
   }
 }
 
-# Subnet for Private Endpoints
+# Subnet for Private Endpoints (ACR and internal resources)
 resource "azurerm_subnet" "pe_subnet" {
   name                 = "subnet-pe-${var.applicationname}"
   resource_group_name  = azurerm_resource_group.rg.name
@@ -255,6 +351,13 @@ resource "azurerm_postgresql_flexible_server_database" "n8n_db" {
   collation = "en_US.utf8"
 }
 
+# Role Assignment: Grant managed identity Reader role on PostgreSQL
+resource "azurerm_role_assignment" "postgres_reader" {
+  scope                = azurerm_postgresql_flexible_server.postgres.id
+  role_definition_name = "Reader"
+  principal_id         = azurerm_user_assigned_identity.app_identity.principal_id
+}
+
 # App Service Plan (Linux, Basic B1 - cheapest viable option)
 resource "azurerm_service_plan" "plan" {
   name                = "asp-${var.applicationname}-n8n"
@@ -278,14 +381,20 @@ resource "azurerm_linux_web_app" "webapp" {
     always_on = false
 
     application_stack {
-      docker_image_name        = "n8n:latest"
-      docker_registry_url      = var.acr_name != "" ? "https://${data.azurerm_container_registry.acr[0].login_server}" : null
+      docker_image_name        = "n8n:${var.n8n_image_tag}"
+      docker_registry_url      = "https://${azurerm_container_registry.acr.login_server}"
       docker_registry_username = null
       docker_registry_password = null
     }
-    container_registry_use_managed_identity       = var.acr_name != "" ? true : false
-    container_registry_managed_identity_client_id = var.acr_name != "" ? data.azurerm_user_assigned_identity.app_identity.client_id : null
+    container_registry_use_managed_identity       = true
+    container_registry_managed_identity_client_id = azurerm_user_assigned_identity.app_identity.client_id
+    
+    # Route container image pulls through VNet
+    vnet_route_all_enabled = true
   }
+
+  # VNet Integration Configuration
+  vnet_image_pull_enabled = true
 
   app_settings = {
     "WEBSITES_ENABLE_APP_SERVICE_STORAGE"   = "false"
@@ -301,49 +410,33 @@ resource "azurerm_linux_web_app" "webapp" {
     "NODE_ENV"                              = var.environment != "" ? var.environment : ""
     "N8N_ENCRYPTION_KEY"                    = var.n8n_encryption_key
     "N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS" = "true"
+    "WEBHOOK_URL"                          = "https://${var.applicationname}-n8n.azurewebsites.net/"
     "DB_POSTGRESDB_SSL_REJECT_UNAUTHORIZED" = "false"
   }
 
   identity {
     type         = "UserAssigned"
-    identity_ids = [data.azurerm_user_assigned_identity.app_identity.id]
+    identity_ids = [azurerm_user_assigned_identity.app_identity.id]
   }
 
   https_only = true
 
   public_network_access_enabled = false
 
-  tags                = merge(local.required_tags, { Description = "The n8n web application." })
+  tags = merge(local.required_tags, { Description = "The n8n web application." })
+
+  depends_on = [
+    null_resource.import_n8n_image,
+    azurerm_role_assignment.acr_pull
+  ]
 }
 
-# VNet Integration for Web App
-resource "azurerm_app_service_virtual_network_swift_connection" "vnet_integration" {
-  app_service_id = azurerm_linux_web_app.webapp.id
-  subnet_id      = azurerm_subnet.app_subnet.id
-}
-
-# Private DNS Zone for Web App
-resource "azurerm_private_dns_zone" "webapp_dns" {
-  name                = "privatelink.azurewebsites.net"
-  resource_group_name = azurerm_resource_group.rg.name
-  tags                = merge(local.required_tags, { Description = "For internal resolution of the n8n web application." })
-}
-
-# Link Private DNS Zone to VNet
-resource "azurerm_private_dns_zone_virtual_network_link" "webapp_dns_link" {
-  name                  = "webapp-dns-link"
-  resource_group_name   = azurerm_resource_group.rg.name
-  private_dns_zone_name = azurerm_private_dns_zone.webapp_dns.name
-  virtual_network_id    = azurerm_virtual_network.vnet.id
-  registration_enabled  = false
-}
-
-# Private Endpoint for Web App
+# Private Endpoint for Web App (using existing subnet and DNS)
 resource "azurerm_private_endpoint" "webapp_pe" {
   name                = "pe-${var.applicationname}-webapp"
   resource_group_name = azurerm_resource_group.rg.name
-  location            = azurerm_resource_group.rg.location
-  subnet_id           = azurerm_subnet.pe_subnet.id
+  location            = "East US" #azurerm_resource_group.rg.location
+  subnet_id           = data.azurerm_subnet.webapp_pe_subnet.id
 
   private_service_connection {
     name                           = "psc-${var.applicationname}-webapp"
@@ -354,9 +447,10 @@ resource "azurerm_private_endpoint" "webapp_pe" {
 
   private_dns_zone_group {
     name                 = "webapp-dns-zone-group"
-    private_dns_zone_ids = [azurerm_private_dns_zone.webapp_dns.id]
+    private_dns_zone_ids = [data.azurerm_private_dns_zone.webapp_dns.id]
   }
-  tags                = merge(local.required_tags, { Description = "Internal private endpoint only for the n8n web app. Do not use this endpoint to connect to it. Create another one for external access." })
+  
+  tags = merge(local.required_tags, { Description = "Private endpoint for external access to the n8n web app." })
 }
 
 # Outputs
@@ -386,11 +480,26 @@ output "vnet_name" {
 }
 
 output "user_assigned_identity_id" {
-  value       = data.azurerm_user_assigned_identity.app_identity.id
+  value       = azurerm_user_assigned_identity.app_identity.id
   description = "User-assigned managed identity ID"
 }
 
 output "user_assigned_identity_principal_id" {
-  value       = data.azurerm_user_assigned_identity.app_identity.principal_id
+  value       = azurerm_user_assigned_identity.app_identity.principal_id
   description = "User-assigned managed identity principal ID"
+}
+
+output "user_assigned_identity_client_id" {
+  value       = azurerm_user_assigned_identity.app_identity.client_id
+  description = "User-assigned managed identity client ID"
+}
+
+output "acr_login_server" {
+  value       = azurerm_container_registry.acr.login_server
+  description = "ACR login server URL"
+}
+
+output "acr_name" {
+  value       = azurerm_container_registry.acr.name
+  description = "ACR name"
 }
