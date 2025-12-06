@@ -40,7 +40,7 @@ variable "applicationname" {
 variable "location" {
   description = "Azure region for resources"
   type        = string
-  default     = "East US"
+  default     = "South Central US"
 }
 
 variable "environment" {
@@ -76,10 +76,17 @@ variable "owner" {
   default     = ""
 }
 
+variable "category" {
+  description = "Category tag"
+  type        = string
+  default     = ""
+}
+
 locals {
   required_tags = {
     CostManagement = var.costmanagement
     Owner          = var.owner
+    Category       = var.category
     Environment    = var.environment
   }
 }
@@ -114,24 +121,6 @@ variable "db_admin_password" {
   default     = "TempPassword123!" # Will be used only during destroy
 }
 
-variable "webapp_pe_subnet_name" {
-  description = "Name of the existing subnet for webapp private endpoint"
-  type        = string
-  default     = "PRIVATE_SUBNET_01"
-}
-
-variable "webapp_pe_subnet_vnet_name" {
-  description = "Name of the VNet containing the webapp PE subnet"
-  type        = string
-  default     = "davincidev-coreservices-vnet"
-}
-
-variable "webapp_pe_subnet_resource_group" {
-  description = "Resource group of the VNet containing the webapp PE subnet"
-  type        = string
-  default     = "davincidev-coreservices-rg"
-}
-
 variable "webapp_private_dns_zone_name" {
   description = "Name of the existing private DNS zone for webapp"
   type        = string
@@ -146,9 +135,9 @@ variable "webapp_private_dns_zone_resource_group" {
 
 # Data sources
 data "azurerm_subnet" "webapp_pe_subnet" {
-  name                 = var.webapp_pe_subnet_name
-  virtual_network_name = var.webapp_pe_subnet_vnet_name
-  resource_group_name  = var.webapp_pe_subnet_resource_group
+  name                 = lower(var.environment) != "production" ? "PRIVATE_SUBNET-06" : "SUBNET-2"
+  virtual_network_name = lower(var.environment) != "production" ? "DAVINCI-SERVICES" : "davinci-services-vnet"
+  resource_group_name  = lower(var.environment) != "production" ? "DAVINCI-SERVICE-RG-DR" : "davinci-services-rg"
 }
 
 data "azurerm_private_dns_zone" "webapp_dns" {
@@ -270,6 +259,10 @@ resource "azurerm_subnet" "app_subnet" {
       actions = ["Microsoft.Network/virtualNetworks/subnets/action"]
     }
   }
+
+  depends_on = [
+    azurerm_virtual_network.vnet
+  ]
 }
 
 # Subnet for Private Endpoints (ACR and internal resources)
@@ -278,6 +271,10 @@ resource "azurerm_subnet" "pe_subnet" {
   resource_group_name  = azurerm_resource_group.rg.name
   virtual_network_name = azurerm_virtual_network.vnet.name
   address_prefixes     = ["10.0.2.0/24"]
+  
+  depends_on = [
+    azurerm_virtual_network.vnet
+  ]
 }
 
 # Subnet for PostgreSQL (requires delegation)
@@ -296,6 +293,10 @@ resource "azurerm_subnet" "postgres_subnet" {
       ]
     }
   }
+
+  depends_on = [
+    azurerm_virtual_network.vnet
+  ]  
 }
 
 # Private DNS Zone for PostgreSQL
@@ -410,7 +411,7 @@ resource "azurerm_linux_web_app" "webapp" {
     "NODE_ENV"                              = var.environment != "" ? var.environment : ""
     "N8N_ENCRYPTION_KEY"                    = var.n8n_encryption_key
     "N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS" = "true"
-    "WEBHOOK_URL"                          = "https://${var.applicationname}-n8n.azurewebsites.net/"
+    "WEBHOOK_URL"                           = "https://${var.applicationname}-n8n.azurewebsites.net/"
     "DB_POSTGRESDB_SSL_REJECT_UNAUTHORIZED" = "false"
   }
 
@@ -435,7 +436,7 @@ resource "azurerm_linux_web_app" "webapp" {
 resource "azurerm_private_endpoint" "webapp_pe" {
   name                = "pe-${var.applicationname}-webapp"
   resource_group_name = azurerm_resource_group.rg.name
-  location            = "East US" #azurerm_resource_group.rg.location
+  location            = lower(var.environment) != "production" ? "South Central US" : "East US"
   subnet_id           = data.azurerm_subnet.webapp_pe_subnet.id
 
   private_service_connection {
@@ -449,6 +450,11 @@ resource "azurerm_private_endpoint" "webapp_pe" {
     name                 = "webapp-dns-zone-group"
     private_dns_zone_ids = [data.azurerm_private_dns_zone.webapp_dns.id]
   }
+  
+  depends_on = [
+    data.azurerm_private_dns_zone.webapp_dns,
+    azurerm_private_dns_zone_virtual_network_link.acr_dns_link
+  ]
   
   tags = merge(local.required_tags, { Description = "Private endpoint for external access to the n8n web app." })
 }
@@ -469,7 +475,12 @@ output "postgres_fqdn" {
   description = "PostgreSQL server FQDN"
 }
 
-output "private_endpoint_ip" {
+output "webapp_private_endpoint_fqdn" {
+  value       = azurerm_linux_web_app.webapp.default_hostname
+  description = "Private endpoint FQDN"
+}
+
+output "webapp_private_endpoint_ip" {
   value       = azurerm_private_endpoint.webapp_pe.private_service_connection[0].private_ip_address
   description = "Private endpoint IP address"
 }
