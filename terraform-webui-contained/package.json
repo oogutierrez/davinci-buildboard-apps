@@ -1,0 +1,13 @@
+{
+  "name": "terraform-webui",
+  "version": "1.0.0",
+  "description": "Web interface to collect tfvars and run Terraform",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

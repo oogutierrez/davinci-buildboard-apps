@@ -1,0 +1,4 @@
+terraform-webui/node_modules/
+terraform-webui-contained/node_modules/
+terraform-webui/.env
+terraform-webui-contained/.env

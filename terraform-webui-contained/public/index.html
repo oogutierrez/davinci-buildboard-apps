@@ -1,0 +1,1388 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Terraform Runner UI</title>
+    <style>
+      :root {
+        --bg: #f4f7fb;
+        --panel: #ffffff;
+        --text: #1f2937;
+        --muted: #6b7280;
+        --accent: #0b5fff;
+        --accent-dark: #0842b3;
+        --border: #d1d5db;
+        --danger: #b42318;
+        --success: #067647;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", Tahoma, sans-serif;
+        background: linear-gradient(145deg, #eef3fb, #f8fafc);
+        color: var(--text);
+      }
+
+      .container {
+        max-width: 1080px;
+        margin: 24px auto;
+        padding: 0 16px 24px;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 1.9rem;
+      }
+
+      .subtitle {
+        color: var(--muted);
+        margin-bottom: 20px;
+      }
+
+      .panel {
+        background: var(--panel);
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        padding: 16px;
+        box-shadow: 0 6px 20px rgba(17, 24, 39, 0.05);
+        margin-bottom: 16px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 14px;
+      }
+
+      .section {
+        margin-bottom: 18px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: #f9fbff;
+        padding: 14px;
+      }
+
+      .section-title {
+        margin: 0 0 10px;
+        font-size: 1.05rem;
+        padding-bottom: 8px;
+        border-bottom: 1px dashed #bfc8d6;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .field label {
+        font-weight: 600;
+      }
+
+      .field-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .workspace-tools {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .icon-button {
+        width: 30px;
+        height: 30px;
+        min-width: 30px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: #fff;
+        color: #344054;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        padding: 0;
+        line-height: 1;
+      }
+
+      .icon-button:hover {
+        background: #eef2ff;
+      }
+
+      .icon-button[disabled] {
+        opacity: 0.55;
+        cursor: not-allowed;
+      }
+
+      .spinner {
+        width: 14px;
+        height: 14px;
+        border: 2px solid #98a2b3;
+        border-top-color: #0b5fff;
+        border-radius: 50%;
+        display: none;
+        animation: spin 0.8s linear infinite;
+      }
+
+      .spinner.active {
+        display: inline-block;
+      }
+
+      .refresh-glyph {
+        font-size: 13px;
+      }
+
+      .count-badge {
+        min-width: 22px;
+        height: 22px;
+        border-radius: 999px;
+        border: 1px solid #bfd0ff;
+        background: #edf2ff;
+        color: #1d4ed8;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 0 6px;
+      }
+
+      .workspace-flash {
+        position: fixed;
+        top: 18px;
+        right: 18px;
+        z-index: 9999;
+        max-width: 420px;
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+        opacity: 0;
+        transform: translateY(-8px);
+        pointer-events: none;
+        transition: opacity 180ms ease, transform 180ms ease;
+      }
+
+      .workspace-flash.show {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .workspace-flash.success {
+        background: #ecfdf3;
+        border: 1px solid #abefc6;
+        color: #067647;
+      }
+
+      .workspace-flash.error {
+        background: #fef3f2;
+        border: 1px solid #fecdca;
+        color: #b42318;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .tag-editor {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px;
+        background: #fff;
+      }
+
+      .tag-editor-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 8px;
+      }
+
+      .meta {
+        font-size: 0.84rem;
+        color: var(--muted);
+      }
+
+      input,
+      select,
+      textarea,
+      button {
+        font: inherit;
+      }
+
+      input,
+      select,
+      textarea {
+        width: 100%;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        padding: 10px;
+        background: #fff;
+      }
+
+      textarea {
+        min-height: 80px;
+        resize: vertical;
+      }
+
+      .actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      button {
+        border: 0;
+        border-radius: 8px;
+        padding: 10px 14px;
+        color: #fff;
+        background: var(--accent);
+        cursor: pointer;
+        font-weight: 600;
+      }
+
+      button:hover {
+        background: var(--accent-dark);
+      }
+
+      button.secondary {
+        background: #475467;
+      }
+
+      button.secondary:hover {
+        background: #344054;
+      }
+
+      button[disabled] {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .status {
+        font-weight: 600;
+      }
+
+      .status.error {
+        color: var(--danger);
+      }
+
+      .status.success {
+        color: var(--success);
+      }
+
+      pre {
+        margin: 0;
+        background: #111827;
+        color: #e5e7eb;
+        border-radius: 10px;
+        padding: 12px;
+        overflow: auto;
+        max-height: 520px;
+      }
+
+      @media (max-width: 640px) {
+        .container {
+          margin-top: 12px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Terraform Runner UI</h1>
+      <div class="subtitle" id="summary">Loading Terraform variables...</div>
+
+      <form id="terraform-form" class="panel">
+        <div id="fields"></div>
+
+        <div style="margin-top: 14px" class="grid">
+          <div class="field">
+            <label for="tfvarsUpload">Upload tfvars file (auto-fill form)</label>
+            <input id="tfvarsUpload" type="file" accept=".tfvars,.txt" />
+            <div class="meta">Supports common `key = value` tfvars format.</div>
+          </div>
+
+          <div class="field">
+            <label for="action">Terraform action</label>
+            <select id="action" name="action">
+              <option value="plan">plan</option>
+              <option value="apply">apply</option>
+              <option value="destroy">destroy</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <div class="field-header">
+              <label for="workspace">Backend workspace (state)</label>
+              <div class="workspace-tools">
+                <span class="spinner" id="workspaceSpinner" aria-hidden="true"></span>
+                <span class="count-badge" id="workspaceCount" title="Loaded workspace count">0</span>
+                <button type="button" id="refreshWorkspaces" class="icon-button" title="Refresh workspaces" aria-label="Refresh workspaces">
+                  <span class="refresh-glyph" aria-hidden="true">&#8635;</span>
+                </button>
+              </div>
+            </div>
+            <select id="workspace" name="workspace">
+              <option value="">Current workspace</option>
+            </select>
+            <div class="meta" id="workspaceSummary">Loading workspaces from backend...</div>
+          </div>
+
+          <div class="field">
+            <label for="tfvarsFilename">Generated tfvars filename</label>
+            <input id="tfvarsFilename" name="tfvarsFilename" value="webui.auto.tfvars" />
+            <div class="meta">Saved in your Terraform root folder.</div>
+          </div>
+
+          <div class="field">
+            <label for="destroyConfirmation">Destroy confirmation</label>
+            <input id="destroyConfirmation" name="destroyConfirmation" placeholder="Type DESTROY to enable destroy" />
+            <div class="meta">Required only when action is set to destroy.</div>
+          </div>
+        </div>
+
+        <div class="actions" style="margin-top: 14px">
+          <button id="runButton" type="submit">Run Terraform</button>
+          <span id="status" class="status"></span>
+        </div>
+      </form>
+
+      <div class="panel">
+        <div style="font-weight: 700; margin-bottom: 8px">Terraform Output</div>
+        <pre id="output">No runs yet.</pre>
+      </div>
+    </div>
+    <div id="workspaceFlash" class="workspace-flash" role="status" aria-live="polite"></div>
+
+    <script>
+      const fieldsRoot = document.getElementById("fields");
+      const summary = document.getElementById("summary");
+      const form = document.getElementById("terraform-form");
+      const outputEl = document.getElementById("output");
+      const statusEl = document.getElementById("status");
+      const runButton = document.getElementById("runButton");
+      const tfvarsUpload = document.getElementById("tfvarsUpload");
+      const workspaceSelect = document.getElementById("workspace");
+      const workspaceSummary = document.getElementById("workspaceSummary");
+      const actionSelect = document.getElementById("action");
+      const refreshWorkspacesButton = document.getElementById("refreshWorkspaces");
+      const workspaceSpinner = document.getElementById("workspaceSpinner");
+      const workspaceCount = document.getElementById("workspaceCount");
+      const workspaceFlash = document.getElementById("workspaceFlash");
+
+      let variables = [];
+      let workspaceFlashTimer = null;
+      const TAG_SCHEMAS = {
+        costmanagement: {
+          tagName: "CostManagement",
+          fields: [
+            { name: "CostCenter", required: true },
+            { name: "MRU", required: false },
+            { name: "LocationCode", required: false },
+            { name: "ExpirationDate", required: false },
+          ],
+        },
+        owner: {
+          tagName: "Owner",
+          fields: [
+            { name: "EPRID", required: true },
+            { name: "Name", required: true },
+            { name: "Contact", required: true },
+          ],
+        },
+        category: {
+          tagName: "Category",
+          fields: [
+            { name: "Environment", required: true },
+            { name: "Criticality", required: true },
+            { name: "Role", required: true },
+          ],
+        },
+      };
+
+      function isComplexType(type) {
+        const t = String(type || "").toLowerCase();
+        return (
+          t.startsWith("list") ||
+          t.startsWith("set") ||
+          t.startsWith("map") ||
+          t.startsWith("object") ||
+          t.startsWith("tuple")
+        );
+      }
+
+      function createInput(variable) {
+        const lowerType = String(variable.type || "string").toLowerCase();
+
+        if (TAG_SCHEMAS[variable.name]) {
+          const schema = TAG_SCHEMAS[variable.name];
+          const wrapper = document.createElement("div");
+          wrapper.className = "tag-editor";
+
+          const tagNameField = document.createElement("input");
+          tagNameField.type = "text";
+          tagNameField.readOnly = true;
+          tagNameField.value = schema.tagName;
+          tagNameField.setAttribute("data-tag-readonly", variable.name);
+
+          const tagNameMeta = document.createElement("div");
+          tagNameMeta.className = "meta";
+          tagNameMeta.textContent = "TagName (readonly)";
+
+          const fieldsGrid = document.createElement("div");
+          fieldsGrid.className = "tag-editor-grid";
+
+          const hiddenComposedValue = document.createElement("input");
+          hiddenComposedValue.type = "hidden";
+          hiddenComposedValue.name = variable.name;
+          hiddenComposedValue.id = variable.name;
+
+          const preview = document.createElement("input");
+          preview.type = "text";
+          preview.readOnly = true;
+          preview.setAttribute("data-tag-preview", variable.name);
+
+          const previewMeta = document.createElement("div");
+          previewMeta.className = "meta";
+          previewMeta.textContent = "Value (auto-generated)";
+
+          const updateTagValue = () => {
+            const parts = schema.fields.map((field) => {
+              const input = wrapper.querySelector(`[data-tag-part='${variable.name}:${field.name}']`);
+              return `${field.name}:${input ? input.value : ""}`;
+            });
+            const composed = parts.join("+");
+            hiddenComposedValue.value = composed;
+            preview.value = composed;
+          };
+
+          schema.fields.forEach((field) => {
+            const partWrap = document.createElement("div");
+            partWrap.className = "field";
+
+            const partLabel = document.createElement("label");
+            partLabel.textContent = `${field.name}${field.required ? " *" : ""}`;
+
+            const partInput = document.createElement("input");
+            partInput.type = "text";
+            partInput.required = Boolean(field.required);
+            if (variable.name === "owner" && field.name === "Name") {
+              // Placeholder can be used as default value on submit.
+              partInput.required = false;
+              partInput.placeholder = "Application name";
+              partInput.dataset.ownerNameTouched = "false";
+              partInput.addEventListener("input", () => {
+                partInput.dataset.ownerNameTouched = "true";
+              });
+            }
+            partInput.setAttribute("data-tag-part", `${variable.name}:${field.name}`);
+            partInput.addEventListener("input", updateTagValue);
+
+            partWrap.append(partLabel, partInput);
+            fieldsGrid.append(partWrap);
+          });
+
+          wrapper.append(tagNameMeta, tagNameField, fieldsGrid, previewMeta, preview, hiddenComposedValue);
+          updateTagValue();
+          return wrapper;
+        }
+
+        if (variable.name === "environment") {
+          const select = document.createElement("select");
+          select.name = variable.name;
+          select.id = variable.name;
+          select.required = true;
+
+          const blank = document.createElement("option");
+          blank.value = "";
+          blank.textContent = "Select environment";
+          select.append(blank);
+
+          [
+            { value: "DEV", label: "DEV" },
+            { value: "STG", label: "STG" },
+            { value: "QA", label: "QA" },
+            { value: "PRO", label: "PRO" },
+          ].forEach((opt) => {
+            const option = document.createElement("option");
+            option.value = opt.value;
+            option.textContent = opt.label;
+            select.append(option);
+          });
+
+          const defaultMap = {
+            development: "DEV",
+            staging: "STG",
+            qa: "QA",
+            production: "PRO",
+            dev: "DEV",
+            stg: "STG",
+            pro: "PRO",
+            prod: "PRO",
+          };
+          const mappedDefault = defaultMap[String(variable.defaultValue || "").toLowerCase()];
+          if (mappedDefault) {
+            select.value = mappedDefault;
+          }
+
+          return select;
+        }
+
+        if (lowerType.startsWith("bool")) {
+          const select = document.createElement("select");
+          select.name = variable.name;
+          select.id = variable.name;
+          select.required = Boolean(variable.required);
+
+          const blank = document.createElement("option");
+          blank.value = "";
+          blank.textContent = variable.required ? "Select true/false" : "(leave empty)";
+          select.append(blank);
+
+          const t = document.createElement("option");
+          t.value = "true";
+          t.textContent = "true";
+          select.append(t);
+
+          const f = document.createElement("option");
+          f.value = "false";
+          f.textContent = "false";
+          select.append(f);
+
+          if (typeof variable.defaultValue === "boolean") {
+            select.value = String(variable.defaultValue);
+          }
+
+          return select;
+        }
+
+        if (isComplexType(lowerType)) {
+          const textarea = document.createElement("textarea");
+          textarea.name = variable.name;
+          textarea.id = variable.name;
+          textarea.required = Boolean(variable.required);
+          textarea.placeholder = "Enter JSON value for this Terraform type";
+          if (variable.defaultValue !== undefined && variable.defaultValue !== null) {
+            if (typeof variable.defaultValue === "string") {
+              textarea.value = variable.defaultValue;
+            } else {
+              textarea.value = JSON.stringify(variable.defaultValue, null, 2);
+            }
+          }
+          return textarea;
+        }
+
+        const input = document.createElement("input");
+        input.name = variable.name;
+        input.id = variable.name;
+        input.required = Boolean(variable.required);
+
+        if (lowerType.startsWith("number")) {
+          input.type = "number";
+          input.step = "any";
+        } else {
+          input.type = variable.sensitive ? "password" : "text";
+        }
+
+        if (variable.defaultValue !== undefined && variable.defaultValue !== null) {
+          input.value = String(variable.defaultValue);
+        }
+
+        return input;
+      }
+
+      function getApplicationNameValue() {
+        const appNameInput = document.getElementById("applicationname");
+        return appNameInput ? String(appNameInput.value || "").trim() : "";
+      }
+
+      function syncOwnerNamePlaceholder() {
+        const ownerNameInput = document.querySelector("[data-tag-part='owner:Name']");
+        if (!ownerNameInput) return;
+        const appName = getApplicationNameValue();
+        ownerNameInput.placeholder = appName || "Application name";
+      }
+
+      function wireOwnerNamePlaceholderSync() {
+        const appNameInput = document.getElementById("applicationname");
+        if (appNameInput && !appNameInput.dataset.ownerNamePlaceholderBound) {
+          appNameInput.addEventListener("input", syncOwnerNamePlaceholder);
+          appNameInput.dataset.ownerNamePlaceholderBound = "true";
+        }
+        syncOwnerNamePlaceholder();
+      }
+
+      function applyOwnerNameFallbackOnSubmit() {
+        const ownerNameInput = document.querySelector("[data-tag-part='owner:Name']");
+        if (!ownerNameInput) return;
+
+        const currentValue = String(ownerNameInput.value || "").trim();
+        if (currentValue) return;
+
+        if (ownerNameInput.dataset.ownerNameTouched === "true") {
+          throw new Error("Owner Name cannot be empty after manual edit.");
+        }
+
+        const appName = getApplicationNameValue();
+        const fallback = appName || String(ownerNameInput.placeholder || "").trim();
+        if (!fallback || fallback === "Application name") return;
+
+        ownerNameInput.value = fallback;
+        ownerNameInput.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+
+      function parseTagValue(raw, schema) {
+        const result = {};
+        schema.fields.forEach((f) => {
+          result[f.name] = "";
+        });
+
+        const text = String(raw || "").trim();
+        if (!text) return result;
+
+        text
+          .split("+")
+          .map((part) => part.trim())
+          .filter(Boolean)
+          .forEach((part) => {
+            const idx = part.indexOf(":");
+            if (idx < 0) return;
+            const key = part.slice(0, idx).trim();
+            const value = part.slice(idx + 1);
+            if (Object.prototype.hasOwnProperty.call(result, key)) {
+              result[key] = value;
+            }
+          });
+
+        return result;
+      }
+
+      function setTagValue(variableName, rawValue) {
+        const schema = TAG_SCHEMAS[variableName];
+        if (!schema) return false;
+
+        const parsed = parseTagValue(rawValue, schema);
+        schema.fields.forEach((field) => {
+          const input = document.querySelector(`[data-tag-part='${variableName}:${field.name}']`);
+          if (input) {
+            input.value = parsed[field.name] || "";
+            if (variableName === "owner" && field.name === "Name") {
+              input.dataset.ownerNameTouched = "false";
+            }
+          }
+        });
+
+        const hidden = document.getElementById(variableName);
+        const preview = document.querySelector(`[data-tag-preview='${variableName}']`);
+        const composed = schema.fields.map((f) => `${f.name}:${parsed[f.name] || ""}`).join("+");
+        if (hidden) hidden.value = composed;
+        if (preview) preview.value = composed;
+        return true;
+      }
+
+      function classifyVariable(variableName) {
+        const name = String(variableName || "");
+        const appDetailNames = new Set(["applicationname", "costmanagement", "owner", "category"]);
+        const globalNames = new Set([
+          "subscription_id",
+          "davinci_pro_subscription_id",
+          "location",
+          "environment",
+          "existing_vnet_name",
+          "existing_vnet_resource_group",
+          "existing_app_subnet_name",
+          "existing_pe_subnet_name",
+          "existing_postgres_subnet_name",
+          "webapp_private_dns_zone_resource_group",
+        ]);
+
+        if (appDetailNames.has(name)) {
+          return "appDetails";
+        }
+
+        if (globalNames.has(name)) {
+          return "global";
+        }
+
+        if (
+          name.startsWith("db_") ||
+          name.startsWith("n8n_") ||
+          name.startsWith("webui_") ||
+          name === "runners_auth_token" ||
+          name === "prevent_postgres_destroy"
+        ) {
+          return "resource";
+        }
+
+        return "resource";
+      }
+
+      function buildFieldElement(variable) {
+        const field = document.createElement("div");
+        field.className = "field";
+
+        const label = document.createElement("label");
+        label.setAttribute("for", variable.name);
+        label.textContent = `${variable.name}${variable.required ? " *" : ""}`;
+
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        const info = [
+          `type: ${variable.type || "string"}`,
+          variable.required ? "required" : "optional",
+          variable.sensitive ? "sensitive" : null,
+        ].filter(Boolean);
+        meta.textContent = info.join(" | ");
+
+        const description = document.createElement("div");
+        description.className = "meta";
+        description.textContent = variable.description || "";
+
+        const input = createInput(variable);
+
+        field.append(label, meta, description, input);
+        return field;
+      }
+
+      function renderSection(title, list) {
+        if (!list.length) {
+          return null;
+        }
+
+        const section = document.createElement("section");
+        section.className = "section";
+
+        const heading = document.createElement("h2");
+        heading.className = "section-title";
+        heading.textContent = title;
+
+        const grid = document.createElement("div");
+        grid.className = "grid";
+
+        list.forEach((variable) => {
+          grid.appendChild(buildFieldElement(variable));
+        });
+
+        section.append(heading, grid);
+        return section;
+      }
+
+      function renderVariables(list) {
+        fieldsRoot.innerHTML = "";
+        const appDetailVars = list.filter((v) => classifyVariable(v.name) === "appDetails");
+        const globalVars = list.filter((v) => classifyVariable(v.name) === "global");
+        const resourceVars = list.filter((v) => classifyVariable(v.name) === "resource");
+
+        const appDetailsSection = renderSection("Application Details", appDetailVars);
+        const globalSection = renderSection("Global Inputs", globalVars);
+        const resourceSection = renderSection("Resource Specific Inputs", resourceVars);
+
+        if (appDetailsSection) {
+          fieldsRoot.appendChild(appDetailsSection);
+        }
+        if (globalSection) {
+          fieldsRoot.appendChild(globalSection);
+        }
+        if (resourceSection) {
+          fieldsRoot.appendChild(resourceSection);
+        }
+
+        wireOwnerNamePlaceholderSync();
+      }
+
+      function collectValues() {
+        const values = {};
+
+        variables.forEach((v) => {
+          const el = document.getElementById(v.name);
+          if (!el) return;
+          values[v.name] = el.value;
+        });
+
+        return values;
+      }
+
+      function findTopLevelEqualsIndex(statement) {
+        let inString = false;
+        let escaped = false;
+        let brace = 0;
+        let bracket = 0;
+        let paren = 0;
+
+        for (let i = 0; i < statement.length; i++) {
+          const ch = statement[i];
+
+          if (inString) {
+            if (!escaped && ch === "\\") {
+              escaped = true;
+              continue;
+            }
+            if (!escaped && ch === "\"") {
+              inString = false;
+            }
+            escaped = false;
+            continue;
+          }
+
+          if (ch === "\"") {
+            inString = true;
+            continue;
+          }
+          if (ch === "{") brace += 1;
+          else if (ch === "}") brace -= 1;
+          else if (ch === "[") bracket += 1;
+          else if (ch === "]") bracket -= 1;
+          else if (ch === "(") paren += 1;
+          else if (ch === ")") paren -= 1;
+          else if (ch === "=" && brace === 0 && bracket === 0 && paren === 0) return i;
+        }
+
+        return -1;
+      }
+
+      function parseTfvarsValue(rawValue) {
+        const value = rawValue.trim();
+        if (!value) return "";
+
+        if (value === "true") return true;
+        if (value === "false") return false;
+        if (/^-?\d+(\.\d+)?$/.test(value)) return Number(value);
+
+        if (value.startsWith("\"") && value.endsWith("\"")) {
+          try {
+            return JSON.parse(value);
+          } catch {
+            return value.slice(1, -1);
+          }
+        }
+
+        return value;
+      }
+
+      function splitTfvarsStatements(content) {
+        const normalized = String(content || "").replace(/\r\n/g, "\n");
+        const statements = [];
+        let current = "";
+        let inString = false;
+        let escaped = false;
+        let brace = 0;
+        let bracket = 0;
+        let paren = 0;
+        let inLineComment = false;
+        let inBlockComment = false;
+
+        for (let i = 0; i < normalized.length; i++) {
+          const ch = normalized[i];
+          const next = normalized[i + 1];
+
+          if (inLineComment) {
+            if (ch === "\n") {
+              inLineComment = false;
+              if (!inString && brace === 0 && bracket === 0 && paren === 0) {
+                if (current.trim()) statements.push(current.trim());
+                current = "";
+              } else {
+                current += ch;
+              }
+            }
+            continue;
+          }
+
+          if (inBlockComment) {
+            if (ch === "*" && next === "/") {
+              inBlockComment = false;
+              i += 1;
+            }
+            continue;
+          }
+
+          if (!inString && ch === "/" && next === "/") {
+            inLineComment = true;
+            i += 1;
+            continue;
+          }
+
+          if (!inString && ch === "#") {
+            inLineComment = true;
+            continue;
+          }
+
+          if (!inString && ch === "/" && next === "*") {
+            inBlockComment = true;
+            i += 1;
+            continue;
+          }
+
+          current += ch;
+
+          if (inString) {
+            if (!escaped && ch === "\\") {
+              escaped = true;
+              continue;
+            }
+            if (!escaped && ch === "\"") {
+              inString = false;
+            }
+            escaped = false;
+            continue;
+          }
+
+          if (ch === "\"") {
+            inString = true;
+            continue;
+          }
+          if (ch === "{") brace += 1;
+          else if (ch === "}") brace -= 1;
+          else if (ch === "[") bracket += 1;
+          else if (ch === "]") bracket -= 1;
+          else if (ch === "(") paren += 1;
+          else if (ch === ")") paren -= 1;
+
+          if (ch === "\n" && brace === 0 && bracket === 0 && paren === 0) {
+            if (current.trim()) statements.push(current.trim());
+            current = "";
+          }
+        }
+
+        if (current.trim()) {
+          statements.push(current.trim());
+        }
+
+        return statements;
+      }
+
+      function parseTfvarsContent(content) {
+        const parsed = {};
+        const statements = splitTfvarsStatements(content);
+
+        statements.forEach((statement) => {
+          const eqIndex = findTopLevelEqualsIndex(statement);
+          if (eqIndex < 1) return;
+
+          const key = statement.slice(0, eqIndex).trim();
+          const valueRaw = statement.slice(eqIndex + 1).trim();
+          if (!key) return;
+
+          parsed[key] = parseTfvarsValue(valueRaw);
+        });
+
+        return parsed;
+      }
+
+      function applyParsedTfvarsValues(parsedValues) {
+        let matched = 0;
+        let ignored = 0;
+
+        Object.entries(parsedValues).forEach(([name, value]) => {
+          if (TAG_SCHEMAS[name]) {
+            const ok = setTagValue(name, value);
+            if (ok) matched += 1;
+            else ignored += 1;
+            return;
+          }
+
+          const input = document.getElementById(name);
+          if (!input) {
+            ignored += 1;
+            return;
+          }
+
+          if (input.tagName === "SELECT") {
+            if (name === "environment") {
+              const envMap = {
+                development: "DEV",
+                dev: "DEV",
+                staging: "STG",
+                stg: "STG",
+                qa: "QA",
+                production: "PRO",
+                prod: "PRO",
+                pro: "PRO",
+              };
+              const mapped = envMap[String(value || "").toLowerCase()] || String(value);
+              input.value = mapped;
+            } else {
+              input.value = String(value);
+            }
+          } else if (input.tagName === "TEXTAREA") {
+            input.value = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+          } else {
+            input.value = value == null ? "" : String(value);
+          }
+
+          matched += 1;
+        });
+
+        syncOwnerNamePlaceholder();
+        return { matched, ignored };
+      }
+
+      function clearVariableInputs() {
+        variables.forEach((v) => {
+          if (TAG_SCHEMAS[v.name]) {
+            const schema = TAG_SCHEMAS[v.name];
+            schema.fields.forEach((field) => {
+              const partInput = document.querySelector(`[data-tag-part='${v.name}:${field.name}']`);
+              if (partInput) partInput.value = "";
+            });
+            setTagValue(v.name, "");
+            return;
+          }
+
+          const input = document.getElementById(v.name);
+          if (!input) return;
+
+          if (input.tagName === "SELECT") {
+            input.value = "";
+          } else {
+            input.value = "";
+          }
+        });
+
+        syncOwnerNamePlaceholder();
+      }
+
+      async function loadValuesForWorkspace(workspace) {
+        const selected = String(workspace || "").trim();
+        if (!selected) {
+          clearVariableInputs();
+          statusEl.className = "status";
+          statusEl.textContent = "";
+          return;
+        }
+
+        const res = await fetchWithTimeout(
+          `/api/workspace-values?workspace=${encodeURIComponent(selected)}&t=${Date.now()}`,
+          { cache: "no-store", headers: { "Cache-Control": "no-cache" } },
+          30000
+        );
+        const data = await readJsonResponse(res);
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to load workspace values.");
+        }
+
+        // Ensure stale values are removed when a key is missing from workspace tfvars.
+        clearVariableInputs();
+        const parsed = data.values || {};
+        const { matched, ignored } = applyParsedTfvarsValues(parsed);
+        if (data.tfvarsFilename) {
+          const fileInput = document.getElementById("tfvarsFilename");
+          if (fileInput) {
+            fileInput.value = data.tfvarsFilename;
+          }
+        }
+
+        if (data.tfvarsPath) {
+          statusEl.className = "status success";
+          statusEl.textContent = `Loaded ${matched} value(s) from ${data.tfvarsFilename}. Ignored ${ignored}.`;
+        } else {
+          statusEl.className = "status";
+          statusEl.textContent = `No tfvars file found for workspace '${selected}'.`;
+        }
+      }
+
+      function renderResult(result) {
+        const lines = [];
+
+        if (result.tfvarsPath) {
+          lines.push(`Generated tfvars: ${result.tfvarsPath}`);
+          lines.push("");
+        }
+
+        if (Array.isArray(result.steps)) {
+          result.steps.forEach((step, idx) => {
+            lines.push(`Step ${idx + 1}: ${step.command}`);
+            lines.push(`Exit Code: ${step.code}`);
+            lines.push(step.output || "(no output)");
+            lines.push("\n----------------------------------------\n");
+          });
+        }
+
+        if (result.error) {
+          lines.push(`Error: ${result.error}`);
+        }
+
+        outputEl.textContent = lines.join("\n").trim() || "No output";
+      }
+
+      function appendOutput(text) {
+        outputEl.textContent += text;
+        outputEl.scrollTop = outputEl.scrollHeight;
+      }
+
+      function showWorkspaceFlash(message, type = "success", durationMs = 2600) {
+        if (!workspaceFlash) return;
+        if (workspaceFlashTimer) {
+          clearTimeout(workspaceFlashTimer);
+          workspaceFlashTimer = null;
+        }
+
+        workspaceFlash.textContent = String(message || "");
+        workspaceFlash.className = `workspace-flash ${type} show`;
+
+        workspaceFlashTimer = setTimeout(() => {
+          workspaceFlash.classList.remove("show");
+        }, durationMs);
+      }
+
+      async function readJsonResponse(res) {
+        const contentType = (res.headers.get("content-type") || "").toLowerCase();
+        const raw = await res.text();
+        if (!contentType.includes("application/json")) {
+          const preview = raw.slice(0, 160).replace(/\s+/g, " ").trim();
+          throw new Error(`Expected JSON but got ${contentType || "unknown content type"}. ${preview}`);
+        }
+        try {
+          return JSON.parse(raw);
+        } catch {
+          throw new Error("Backend returned invalid JSON.");
+        }
+      }
+
+      async function fetchWithTimeout(url, options = {}, timeoutMs = 20000) {
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error(`Request timed out after ${timeoutMs}ms`)), timeoutMs);
+        });
+
+        const fetchPromise = fetch(url, options);
+        return Promise.race([fetchPromise, timeoutPromise]);
+      }
+
+      async function loadWorkspaces() {
+        workspaceSummary.textContent = "Loading workspaces from backend...";
+        workspaceSpinner.classList.add("active");
+        refreshWorkspacesButton.disabled = true;
+        const url = `/api/workspaces?t=${Date.now()}`;
+        try {
+          const res = await fetchWithTimeout(
+            url,
+            { cache: "no-store", headers: { "Cache-Control": "no-cache" } },
+            70000
+          );
+          const data = await readJsonResponse(res);
+          if (!res.ok) {
+            const details = data.details ? ` ${String(data.details).slice(0, 180)}` : "";
+            throw new Error(`${data.error || "Failed to load workspaces"}${details}`);
+          }
+
+          const rawWorkspaces = Array.isArray(data.workspaces)
+            ? data.workspaces
+            : String(data.workspaces || "")
+                .split(",")
+                .map((x) => x.trim())
+                .filter(Boolean);
+          const workspaces = [...new Set(rawWorkspaces)];
+
+          workspaceSelect.innerHTML = "";
+          const currentOption = document.createElement("option");
+          currentOption.value = "";
+          currentOption.textContent = "Current workspace";
+          workspaceSelect.append(currentOption);
+
+          workspaces.forEach((name) => {
+            const option = document.createElement("option");
+            option.value = name;
+            option.textContent = name;
+            workspaceSelect.append(option);
+          });
+
+          workspaceCount.textContent = String(workspaces.length);
+          workspaceSummary.textContent = `Workspaces loaded successfully.`;
+          showWorkspaceFlash(`Loaded ${workspaces.length} workspace(s).`, "success");
+        } finally {
+          workspaceSpinner.classList.remove("active");
+          refreshWorkspacesButton.disabled = false;
+        }
+      }
+
+      async function loadVariables() {
+        const res = await fetch("/api/variables");
+        const data = await readJsonResponse(res);
+
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to load variables");
+        }
+
+        variables = data.variables || [];
+        summary.textContent = `Terraform directory: ${data.terraformDir} | Variables loaded: ${variables.length}`;
+        renderVariables(variables);
+      }
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        // If Owner.Name is empty, default it from applicationname before building payload.
+        applyOwnerNameFallbackOnSubmit();
+
+        runButton.disabled = true;
+        statusEl.className = "status";
+        statusEl.textContent = "Running...";
+        outputEl.textContent = "";
+
+        try {
+          const payload = {
+            action: actionSelect.value,
+            tfvarsFilename: document.getElementById("tfvarsFilename").value,
+            workspace: workspaceSelect.value,
+            destroyConfirmation: document.getElementById("destroyConfirmation").value,
+            values: collectValues(),
+          };
+
+          if (payload.action === "destroy" && payload.destroyConfirmation !== "DESTROY") {
+            throw new Error("Destroy requires confirmation phrase exactly: DESTROY");
+          }
+
+          const res = await fetchWithTimeout(
+            `/api/run-stream?t=${Date.now()}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "Cache-Control": "no-cache" },
+              cache: "no-store",
+              body: JSON.stringify(payload),
+            },
+            60 * 60 * 1000
+          );
+          if (!res.body) {
+            throw new Error("Streaming response body is not available in this browser.");
+          }
+
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+          let finished = false;
+
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+
+            for (const line of lines) {
+              if (!line.trim()) continue;
+              let event;
+              try {
+                event = JSON.parse(line);
+              } catch {
+                appendOutput(`${line}\n`);
+                continue;
+              }
+
+              if (event.type === "status") {
+                statusEl.className = "status";
+                statusEl.textContent = event.message || "Running...";
+              } else if (event.type === "tfvars") {
+                appendOutput(`Generated tfvars: ${event.tfvarsPath}\n\n`);
+              } else if (event.type === "step_start") {
+                appendOutput(`\n=== ${event.command} ===\n`);
+              } else if (event.type === "log") {
+                appendOutput(event.chunk || "");
+              } else if (event.type === "step_end") {
+                appendOutput(`\n[exit code: ${event.code}]\n`);
+              } else if (event.type === "error") {
+                statusEl.className = "status error";
+                statusEl.textContent = "Terraform failed. See output below.";
+                appendOutput(`\nERROR: ${event.error}\n`);
+              } else if (event.type === "done") {
+                finished = true;
+                if (event.ok) {
+                  statusEl.className = "status success";
+                  statusEl.textContent = "Terraform completed successfully.";
+                } else {
+                  statusEl.className = "status error";
+                  statusEl.textContent = "Terraform failed. See output below.";
+                }
+              }
+            }
+          }
+
+          if (!finished && statusEl.className !== "status error") {
+            statusEl.className = "status";
+            statusEl.textContent = "Run finished (stream closed).";
+          }
+        } catch (error) {
+          statusEl.className = "status error";
+          statusEl.textContent = "Request failed or timed out.";
+          outputEl.textContent = error.message;
+        } finally {
+          runButton.disabled = false;
+        }
+      });
+
+      tfvarsUpload.addEventListener("change", async (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+
+        try {
+          const content = await file.text();
+          const parsed = parseTfvarsContent(content);
+          const { matched, ignored } = applyParsedTfvarsValues(parsed);
+          statusEl.className = "status success";
+          statusEl.textContent = `Loaded tfvars. Filled ${matched} field(s), ignored ${ignored}.`;
+        } catch (error) {
+          statusEl.className = "status error";
+          statusEl.textContent = `Failed to parse tfvars: ${error.message}`;
+        }
+      });
+
+      loadVariables().catch((error) => {
+        summary.textContent = "Failed to load Terraform metadata.";
+        statusEl.className = "status error";
+        statusEl.textContent = error.message;
+      });
+
+      async function loadWorkspacesWithRetry(maxAttempts = 3) {
+        let attempt = 1;
+        let lastError = null;
+        while (attempt <= maxAttempts) {
+          try {
+            await loadWorkspaces();
+            return;
+          } catch (error) {
+            lastError = error;
+            workspaceSummary.textContent = `Workspace load attempt ${attempt}/${maxAttempts} failed: ${error.message}`;
+            await new Promise((resolve) => setTimeout(resolve, 1200 * attempt));
+            attempt += 1;
+          }
+        }
+        workspaceSummary.textContent = "Context unavailable";
+        showWorkspaceFlash(
+          `Workspace load failed: ${lastError ? lastError.message : "Unknown error"}`,
+          "error",
+          4200
+        );
+      }
+
+      loadWorkspacesWithRetry(4);
+
+      refreshWorkspacesButton.addEventListener("click", () => {
+        loadWorkspacesWithRetry(2).catch((error) => {
+          workspaceSummary.textContent = `Workspace load failed: ${error.message}`;
+        });
+      });
+
+      workspaceSelect.addEventListener("change", async (e) => {
+        try {
+          await loadValuesForWorkspace(e.target.value);
+        } catch (error) {
+          statusEl.className = "status error";
+          statusEl.textContent = `Workspace refresh failed: ${error.message}`;
+        }
+      });
+    </script>
+  </body>
+</html>
+
+

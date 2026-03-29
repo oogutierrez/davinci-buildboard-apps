@@ -1,0 +1,138 @@
+.execution-list-page {
+  max-width: 1400px;
+}
+
+.execution-table-container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+}
+
+.execution-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.execution-table thead {
+  background: var(--background);
+  border-bottom: 1px solid var(--border);
+}
+
+.execution-table th {
+  padding: 1rem;
+  text-align: left;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.execution-table td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.875rem;
+  color: var(--text);
+}
+
+.execution-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.execution-table tbody tr:hover {
+  background: var(--background);
+}
+
+.execution-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+.status-icon {
+  flex-shrink: 0;
+}
+
+.status-icon.success {
+  color: var(--success);
+}
+
+.status-icon.failed {
+  color: var(--error);
+}
+
+.status-icon.running {
+  color: var(--warning);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.execution-status.success {
+  color: var(--success);
+}
+
+.execution-status.failed {
+  color: var(--error);
+}
+
+.execution-status.running {
+  color: var(--warning);
+}
+
+.workflow-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.workflow-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.workflow-id {
+  font-size: 0.75rem;
+  color: var(--text-light);
+  font-family: monospace;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.pagination-btn {
+  padding: 0.5rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  color: var(--text);
+  font-size: 0.875rem;
+  transition: all 0.2s;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-info {
+  font-size: 0.875rem;
+  color: var(--text-light);
+}

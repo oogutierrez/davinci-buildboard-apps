@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>n8n Workflow Explorer</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --card: #16161f;
+    --border: #22222e;
+    --accent: #ff6b35;
+    --accent2: #00e5cc;
+    --text: #e8e8f0;
+    --muted: #6a6a80;
+    --success: #4ade80;
+    --error: #f87171;
+    --warning: #fbbf24;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,107,53,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,107,53,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 24px;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 48px;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .logo-area {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .logo-icon {
+    width: 44px; height: 44px;
+    background: var(--accent);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+
+  h1 {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    line-height: 1.1;
+  }
+
+  h1 span {
+    color: var(--accent);
+  }
+
+  .subtitle {
+    font-size: 13px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    margin-top: 3px;
+  }
+
+  /* Config card */
+  .config-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px;
+    margin-bottom: 32px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .config-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+  }
+
+  .config-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 20px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .config-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 12px;
+    align-items: end;
+  }
+
+  @media (max-width: 640px) {
+    .config-row { grid-template-columns: 1fr; }
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+  }
+
+  input {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input:focus {
+    border-color: var(--accent);
+  }
+
+  input::placeholder { color: var(--muted); }
+
+  .btn-fetch {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 11px 24px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    white-space: nowrap;
+    letter-spacing: 0.3px;
+  }
+
+  .btn-fetch:hover { opacity: 0.88; }
+  .btn-fetch:active { transform: scale(0.98); }
+  .btn-fetch:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Status bar */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    margin-top: 16px;
+    display: none;
+  }
+
+  .status-bar.error { background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: var(--error); }
+  .status-bar.info   { background: rgba(0,229,204,0.08); border: 1px solid rgba(0,229,204,0.2); color: var(--accent2); }
+  .status-bar.show   { display: flex; }
+
+  /* Stats row */
+  .stats-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+
+  .stat-pill {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .stat-pill strong {
+    color: var(--text);
+    font-size: 14px;
+  }
+
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* Search */
+  .toolbar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    align-items: center;
+  }
+
+  .search-wrap {
+    position: relative;
+    flex: 1;
+  }
+
+  .search-wrap svg {
+    position: absolute;
+    left: 12px; top: 50%;
+    transform: translateY(-50%);
+    opacity: 0.4;
+    pointer-events: none;
+  }
+
+  #searchInput {
+    width: 100%;
+    padding-left: 38px;
+  }
+
+  .filter-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+  }
+
+  .filter-btn.active, .filter-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* Workflow grid */
+  #workflowGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+  }
+
+  .wf-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    cursor: default;
+    transition: border-color 0.2s, transform 0.15s;
+    position: relative;
+    overflow: hidden;
+    animation: fadeUp 0.3s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .wf-card:hover {
+    border-color: rgba(255,107,53,0.35);
+    transform: translateY(-2px);
+  }
+
+  .wf-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .wf-name {
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.3;
+    flex: 1;
+  }
+
+  .badge {
+    font-size: 10px;
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 20px;
+    flex-shrink: 0;
+  }
+
+  .badge-active   { background: rgba(74,222,128,0.15); color: var(--success); border: 1px solid rgba(74,222,128,0.3); }
+  .badge-inactive { background: rgba(106,106,128,0.15); color: var(--muted); border: 1px solid rgba(106,106,128,0.3); }
+
+  .wf-meta {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .meta-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+  }
+
+  .meta-item svg { opacity: 0.6; }
+
+  .wf-id {
+    position: absolute;
+    bottom: 12px; right: 16px;
+    font-size: 10px;
+    font-family: 'Space Mono', monospace;
+    color: rgba(106,106,128,0.4);
+  }
+
+  .wf-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 12px;
+  }
+
+  .tag {
+    font-size: 10px;
+    font-family: 'Space Mono', monospace;
+    background: rgba(0,229,204,0.08);
+    color: var(--accent2);
+    border: 1px solid rgba(0,229,204,0.15);
+    border-radius: 4px;
+    padding: 2px 7px;
+  }
+
+  /* Empty / loading */
+  .empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+  }
+
+  .empty-state .big-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    display: block;
+    opacity: 0.4;
+  }
+
+  .empty-state p { font-size: 14px; line-height: 1.6; }
+
+  .spinner {
+    width: 32px; height: 32px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin: 0 auto 16px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Tooltip for CORS notice */
+  .notice {
+    background: rgba(251,191,36,0.08);
+    border: 1px solid rgba(251,191,36,0.25);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 12px;
+    font-family: 'Space Mono', monospace;
+    color: var(--warning);
+    line-height: 1.6;
+    margin-top: 16px;
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <header>
+    <div class="logo-area">
+      <div class="logo-icon">⚡</div>
+      <div>
+        <h1>n8n <span>Workflow</span> Explorer</h1>
+        <div class="subtitle">// browse & inspect your automations</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Config -->
+  <div class="config-card">
+    <div class="config-title">⚙ Connection Settings</div>
+    <div class="config-row">
+      <div class="field">
+        <label>n8n Base URL</label>
+        <input type="text" id="baseUrl" placeholder="http://localhost:5678" value="http://localhost:5678">
+      </div>
+      <div class="field">
+        <label>API Key</label>
+        <input type="password" id="apiKey" placeholder="n8n_api_xxxxxxxxxxxxxxxx">
+      </div>
+      <button class="btn-fetch" id="fetchBtn" onclick="fetchWorkflows()">Fetch Workflows</button>
+    </div>
+    <div class="status-bar" id="statusBar"></div>
+    <div class="notice">
+      ⚠ Make sure your n8n instance has the REST API enabled and CORS is configured to allow requests from this page's origin. You can also run this file locally for easier access to localhost instances.
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row" id="statsRow" style="display:none">
+    <div class="stat-pill"><span class="dot" style="background:#6a6a80"></span> Total <strong id="statTotal">0</strong></div>
+    <div class="stat-pill"><span class="dot" style="background:var(--success)"></span> Active <strong id="statActive">0</strong></div>
+    <div class="stat-pill"><span class="dot" style="background:var(--muted)"></span> Inactive <strong id="statInactive">0</strong></div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar" id="toolbar" style="display:none">
+    <div class="search-wrap">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+      </svg>
+      <input type="text" id="searchInput" placeholder="Search workflows…" oninput="renderWorkflows()">
+    </div>
+    <button class="filter-btn active" id="filterAll"      onclick="setFilter('all')">All</button>
+    <button class="filter-btn"        id="filterActive"   onclick="setFilter('active')">Active</button>
+    <button class="filter-btn"        id="filterInactive" onclick="setFilter('inactive')">Inactive</button>
+  </div>
+
+  <!-- Grid -->
+  <div id="workflowGrid">
+    <div class="empty-state">
+      <span class="big-icon">⚡</span>
+      <p>Enter your n8n URL and API key above,<br>then click <strong>Fetch Workflows</strong> to get started.</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let allWorkflows = [];
+  let currentFilter = 'all';
+
+  function setFilter(f) {
+    currentFilter = f;
+    ['All','Active','Inactive'].forEach(n => {
+      const el = document.getElementById('filter'+n);
+      el.classList.toggle('active', n.toLowerCase() === f);
+    });
+    renderWorkflows();
+  }
+
+  function showStatus(msg, type = 'info') {
+    const el = document.getElementById('statusBar');
+    el.textContent = msg;
+    el.className = 'status-bar show ' + type;
+  }
+
+  function hideStatus() {
+    document.getElementById('statusBar').className = 'status-bar';
+  }
+
+  async function fetchWorkflows() {
+    const baseUrl = document.getElementById('baseUrl').value.trim().replace(/\/$/, '');
+    const apiKey  = document.getElementById('apiKey').value.trim();
+
+    if (!baseUrl) { showStatus('Please enter your n8n base URL.', 'error'); return; }
+    if (!apiKey)  { showStatus('Please enter your API key.', 'error'); return; }
+
+    const btn = document.getElementById('fetchBtn');
+    btn.disabled = true;
+    btn.textContent = 'Loading…';
+    showStatus('Connecting to n8n…', 'info');
+
+    document.getElementById('workflowGrid').innerHTML =
+      '<div class="empty-state"><div class="spinner"></div><p>Fetching workflows…</p></div>';
+
+    try {
+      let workflows = [];
+      let cursor = null;
+
+      // Paginate through all workflows
+      do {
+        const url = new URL(`${baseUrl}/api/v1/workflows`);
+        url.searchParams.set('limit', '250');
+        if (cursor) url.searchParams.set('cursor', cursor);
+
+        const res = await fetch(url.toString(), {
+          headers: {
+            'X-N8N-API-KEY': apiKey,
+            'Accept': 'application/json'
+          }
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`HTTP ${res.status}: ${text.slice(0, 120)}`);
+        }
+
+        const data = await res.json();
+        const items = data.data ?? data ?? [];
+        workflows = workflows.concat(Array.isArray(items) ? items : []);
+        cursor = data.nextCursor ?? null;
+      } while (cursor);
+
+      allWorkflows = workflows;
+      const active   = workflows.filter(w => w.active).length;
+      const inactive = workflows.length - active;
+
+      document.getElementById('statTotal').textContent   = workflows.length;
+      document.getElementById('statActive').textContent  = active;
+      document.getElementById('statInactive').textContent = inactive;
+      document.getElementById('statsRow').style.display = 'flex';
+      document.getElementById('toolbar').style.display  = 'flex';
+      document.getElementById('searchInput').value = '';
+      currentFilter = 'all';
+      ['All','Active','Inactive'].forEach(n => {
+        document.getElementById('filter'+n).classList.toggle('active', n === 'All');
+      });
+
+      hideStatus();
+      renderWorkflows();
+    } catch (err) {
+      showStatus('Error: ' + err.message, 'error');
+      document.getElementById('workflowGrid').innerHTML =
+        '<div class="empty-state"><span class="big-icon" style="opacity:.3">⚠</span><p>Could not fetch workflows.<br>Check your URL, API key, and CORS settings.</p></div>';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Fetch Workflows';
+    }
+  }
+
+  function renderWorkflows() {
+    const query  = (document.getElementById('searchInput').value || '').toLowerCase();
+    const grid   = document.getElementById('workflowGrid');
+
+    let filtered = allWorkflows.filter(w => {
+      if (currentFilter === 'active'   && !w.active) return false;
+      if (currentFilter === 'inactive' &&  w.active) return false;
+      if (query && !w.name.toLowerCase().includes(query)) return false;
+      return true;
+    });
+
+    if (!filtered.length) {
+      grid.innerHTML = '<div class="empty-state"><span class="big-icon" style="opacity:.3">🔍</span><p>No workflows match your filter.</p></div>';
+      return;
+    }
+
+    grid.innerHTML = filtered.map((w, i) => {
+      const updatedAt = w.updatedAt
+        ? new Date(w.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        : '—';
+      const nodeCount = Array.isArray(w.nodes) ? w.nodes.length : '?';
+      const tags = Array.isArray(w.tags) && w.tags.length
+        ? w.tags.map(t => `<span class="tag">${escHtml(t.name ?? t)}</span>`).join('')
+        : '';
+
+      return `
+        <div class="wf-card" style="animation-delay:${i * 0.04}s">
+          <div class="wf-card-header">
+            <div class="wf-name">${escHtml(w.name || 'Untitled')}</div>
+            <span class="badge ${w.active ? 'badge-active' : 'badge-inactive'}">
+              ${w.active ? '● Active' : '○ Off'}
+            </span>
+          </div>
+          <div class="wf-meta">
+            <span class="meta-item">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+              ${nodeCount} nodes
+            </span>
+            <span class="meta-item">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              ${updatedAt}
+            </span>
+          </div>
+          ${tags ? `<div class="wf-tags">${tags}</div>` : ''}
+          <div class="wf-id">#${escHtml(String(w.id))}</div>
+        </div>`;
+    }).join('');
+  }
+
+  function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // Allow Enter key to trigger fetch
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.target.id === 'baseUrl' || e.target.id === 'apiKey')) {
+      fetchWorkflows();
+    }
+  });
+</script>
+</body>
+</html>

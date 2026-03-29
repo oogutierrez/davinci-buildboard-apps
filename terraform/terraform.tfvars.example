@@ -1,0 +1,198 @@
+# ==============================================================================
+# N8N Container Apps - Terraform Variables Template
+# ==============================================================================
+# Copy this file to create your environment-specific configuration:
+#   cp terraform.tfvars.example myapp-dev.tfvars
+# Then fill in the values below.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# REQUIRED: Azure Subscription
+# ------------------------------------------------------------------------------
+
+subscription_id = "YOUR-SUBSCRIPTION-ID-HERE"
+# Example: "12345678-1234-1234-1234-123456789abc"
+# The Azure subscription where resources will be deployed
+
+# ------------------------------------------------------------------------------
+# REQUIRED: Application Identity
+# ------------------------------------------------------------------------------
+
+applicationname = "myapp"
+# Requirements:
+# - Lowercase letters and numbers only
+# - Maximum 10 characters
+# - Used in all resource names (e.g., rg-myapp-n8n-dev)
+# Example: "myapp", "app1", "n8nprod"
+
+location = "East US 2"
+# Azure region for resource deployment
+# Common options: "East US", "East US 2", "West US", "West Europe", "South Central US"
+
+environment = "development"
+# Must be one of: development, production, staging, qa
+# Determines the environment suffix (dev, pro, stg, qa) in resource names
+
+# ------------------------------------------------------------------------------
+# REQUIRED: Network Configuration (Existing VNet & Subnets)
+# ------------------------------------------------------------------------------
+
+existing_vnet_name            = "your-vnet-name"
+existing_vnet_resource_group  = "your-vnet-resource-group"
+# The existing VNet where all resources will be deployed
+
+existing_app_subnet_name      = "container-apps-subnet"
+# Subnet for Container App Environment infrastructure
+# REQUIREMENTS:
+# - Must be delegated to: Microsoft.App/environments
+# - Minimum size: /27 (32 IP addresses)
+# - Cannot have other resources or delegations
+
+existing_pe_subnet_name       = "private-endpoints-subnet"
+# Subnet for private endpoints (ACR, PostgreSQL, Container App Environment)
+# REQUIREMENTS:
+# - No delegation required
+# - Recommended size: /28 or larger
+
+existing_postgres_subnet_name = "postgres-subnet"
+# Subnet for PostgreSQL Flexible Server
+# REQUIREMENTS:
+# - Must be delegated to: Microsoft.DBforPostgreSQL/flexibleServers
+# - Minimum size: /28
+# - Cannot have other resources or delegations
+
+# ------------------------------------------------------------------------------
+# REQUIRED: Security - N8N Encryption Key
+# ------------------------------------------------------------------------------
+
+n8n_encryption_key = "REPLACE-WITH-32-CHARACTER-OR-LONGER-KEY"
+# CRITICAL: Generate a secure random key for n8n encryption
+# Requirements:
+# - Minimum 32 characters
+# - Use strong random characters (letters, numbers, special chars)
+#
+# Generate a secure key:
+# Linux/Mac:  openssl rand -base64 48
+# PowerShell: -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 48 | ForEach-Object {[char]$_})
+#
+# Example: "k9mP2vL8nQ4wX7jR5tY3bN6hF1dG8sA9cE2zM5xK7pW4qV6uT3yH9rJ2nL5mB8fD"
+
+# ------------------------------------------------------------------------------
+# REQUIRED: Resource Tags (for governance and cost tracking)
+# ------------------------------------------------------------------------------
+
+costmanagement = "CostCenter:YOUR-COST-CENTER+MRU:YOUR-MRU+LocationCode:US+ExpirationDate:YYYY-MM-DD"
+# Cost tracking tags
+# Format: Key:Value+Key:Value
+# Example: "CostCenter:12345+MRU:67890+LocationCode:US+ExpirationDate:2026-12-31"
+
+owner = "EPRID:YOUR-EPRID+Name:Your Name+Contact:your.email@company.com"
+# Owner information tags
+# Example: "EPRID:E12345+Name:John Doe+Contact:john.doe@company.com"
+
+category = "Environment:Dev+Criticality:Normal+Role:Application"
+# Resource categorization tags
+# Criticality options: Low, Normal, High, Critical
+# Example: "Environment:Prod+Criticality:High+Role:Application"
+
+# ------------------------------------------------------------------------------
+# OPTIONAL: Database Configuration
+# ------------------------------------------------------------------------------
+
+db_admin_username = "n8nadmin"
+# PostgreSQL admin username
+# Default: "n8nadmin"
+# Requirements: 1-63 chars, start with letter, alphanumeric + underscores only
+
+db_admin_password = ""
+# PostgreSQL admin password
+# Leave empty to auto-generate a secure random password (RECOMMENDED)
+# If provided, must meet Azure password complexity requirements
+# Auto-generated password will be available in: terraform output -json db_admin_password
+
+prevent_postgres_destroy = false
+# Set to true in production to prevent accidental database deletion
+# Default: false (allows terraform destroy)
+# Production recommendation: true
+
+# ------------------------------------------------------------------------------
+# OPTIONAL: N8N Application Configuration
+# ------------------------------------------------------------------------------
+
+n8n_image_tag = "latest"
+# N8N Docker image tag to deploy
+# Default: "latest"
+# Examples: "latest", "1.23.0", "stable"
+# Image will be imported from: docker.io/n8nio/n8n:<tag>
+
+runners_auth_token = ""
+# Authentication token for n8n runners
+# Leave empty to auto-generate a secure random token (RECOMMENDED)
+# Auto-generated token will be available in: terraform output -json runners_auth_token
+
+# ------------------------------------------------------------------------------
+# OPTIONAL: Custom Web UI Configuration
+# ------------------------------------------------------------------------------
+
+webui_image = ""
+# Full source image reference to import for custom web UI
+# Leave empty if building from Dockerfile or pushing via CI/CD
+# Example: "docker.io/yourorg/n8n-webui:1.0.0"
+
+webui_image_tag = "latest"
+# Tag for the custom web UI image in ACR
+# Default: "latest"
+# Used when building from Dockerfile or as target tag for imports
+
+webui_port = 3000
+# Port that the custom web UI container listens on
+# Default: 3000
+# Valid range: 1-65535
+
+webui_dockerfile_path = ""
+# Path to Dockerfile for building custom web UI
+# Leave empty to skip building from Dockerfile
+# Example: "./webui-docker/Dockerfile"
+# Note: Requires Docker to be installed and running
+
+webui_build_context = ""
+# Build context directory for Docker build
+# Leave empty to use Dockerfile's directory
+# Example: "./webui-docker"
+
+# ------------------------------------------------------------------------------
+# ADVANCED: Subscription Configuration
+# ------------------------------------------------------------------------------
+
+davinci_pro_subscription_id = "31be81f5-fcff-4ec4-b88e-de233997e15e"
+# Subscription ID for DAVINCI-PRO (shared Private DNS zones)
+# Default: "31be81f5-fcff-4ec4-b88e-de233997e15e"
+# Only change if your organization uses different DNS zone subscription
+
+webapp_private_dns_zone_resource_group = "dvpro-private-dns-zones-rg"
+# Resource group containing shared Private DNS zones (ACR, PostgreSQL)
+# Default: "dvpro-private-dns-zones-rg"
+# Only change if your organization uses different DNS zone resource group
+
+# ==============================================================================
+# DEPLOYMENT CHECKLIST
+# ==============================================================================
+#
+# Before running terraform apply, ensure:
+#
+# ✅ All REQUIRED fields are filled with actual values (no placeholders)
+# ✅ VNet and subnets exist with proper delegations configured
+# ✅ Private DNS zones exist in DAVINCI-PRO subscription
+# ✅ You have Contributor access to target subscription
+# ✅ You have Reader access to DAVINCI-PRO subscription (for DNS zones)
+# ✅ Azure CLI is authenticated: az login
+# ✅ Terraform workspace is created: terraform workspace new myapp-dev
+# ✅ Backend is configured: terraform init -backend-config="backend.tfvars"
+#
+# POST-DEPLOYMENT STEPS:
+#
+# ⚠️  REQUIRED: Add TCP port 5679 to n8n-main Container App (via Azure Portal)
+# ⚠️  REQUIRED: Update hosts file on your local computer for browser access
+#     Run: terraform output hosts_file_entries
+#
+# ==============================================================================

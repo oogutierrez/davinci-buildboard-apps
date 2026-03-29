@@ -1,0 +1,125 @@
+# ==============================================================================
+# Terraform .gitignore
+# ==============================================================================
+
+# Local .terraform directories
+**/.terraform/*
+
+# Terraform state files
+*.tfstate
+*.tfstate.*
+errored.tfstate
+
+# Crash log files
+crash.log
+crash.*.log
+
+# Exclude all .tfvars files (contain sensitive data)
+*.tfvars
+
+# EXCEPTION: Keep example template files
+!terraform.tfvars.example
+!backend.tfvars.example
+
+# Override files (Terraform uses to override resources locally)
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Terraform CLI configuration files
+.terraformrc
+terraform.rc
+
+# Terraform lock file (optional - some teams commit this)
+# Uncomment to track dependency versions:
+# .terraform.lock.hcl
+
+# ==============================================================================
+# IDE and Editor files
+# ==============================================================================
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# JetBrains IDEs (IntelliJ, PyCharm, etc.)
+.idea/
+*.iml
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# ==============================================================================
+# OS files
+# ==============================================================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+.directory
+.Trash-*
+
+# ==============================================================================
+# Backup and temporary files
+# ==============================================================================
+
+# Terraform plan output files
+*.tfplan
+tfplan*
+
+# Backup files
+*.backup
+*.bak
+*.old
+*.orig
+
+# Temporary files
+*.tmp
+*.temp
+
+# ==============================================================================
+# Documentation build artifacts
+# ==============================================================================
+
+# If using tools like terraform-docs
+*.md.backup
+
+# ==============================================================================
+# Application-specific
+# ==============================================================================
+
+# WebUI Docker build artifacts
+webui-docker/client/node_modules/
+webui-docker/client/dist/
+webui-docker/server/node_modules/
+webui-docker/server/dist/
+
+# Logs
+*.log
+
+# Environment files (if used)
+.env
+.env.local
+.env.*.local
+
+terraform-webui/node_modules/
+terraform-webui/.env
+
+webui-docker/node_modules/

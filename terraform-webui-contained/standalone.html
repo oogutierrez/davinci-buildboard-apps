@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Terraform Web UI - Standalone</title>
+    <style>
+      body { margin: 0; font-family: "Segoe UI", Tahoma, sans-serif; background: #f3f6fb; color: #172033; }
+      #standalone-app-root { max-width: 1200px; margin: 0 auto; padding: 16px; }
+    </style>
+  </head>
+  <body>
+    <main id="standalone-app-root"></main>
+    <script type="module">
+      function resolvePackage(mod) {
+        let pkg = mod.appPackage ?? mod.default ?? null;
+        if (!pkg) {
+          for (const value of Object.values(mod)) {
+            if (value && typeof value === "object" && typeof value.render === "function") {
+              pkg = value;
+              break;
+            }
+          }
+        }
+        return pkg;
+      }
+
+      async function mountStandaloneApp(modulePath, mountId = "standalone-app-root") {
+        const container = document.getElementById(mountId);
+        if (!container) return;
+        try {
+          const resolvedModuleUrl = new URL(modulePath, window.location.href).href;
+          const mod = await import(resolvedModuleUrl);
+          const pkg = resolvePackage(mod);
+          if (!pkg || typeof pkg.render !== "function") throw new Error("Invalid app module export.");
+          document.title = `${pkg.name || "Terraform Web UI"} - Standalone`;
+          pkg.render(container, { standalone: true });
+        } catch (error) {
+          container.innerHTML = `<pre>Failed to load app: ${error.message}</pre>`;
+        }
+      }
+
+      const moduleUrl = new URL("./index.js", window.location.href);
+      moduleUrl.searchParams.set("v", String(Date.now()));
+      mountStandaloneApp(moduleUrl.href);
+    </script>
+  </body>
+</html>
